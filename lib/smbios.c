@@ -8,7 +8,6 @@
 #include <common.h>
 #include <dm.h>
 #include <env.h>
-#include <linux/stringify.h>
 #include <mapmem.h>
 #include <smbios.h>
 #include <sysinfo.h>
@@ -18,28 +17,6 @@
 #include <cpu.h>
 #include <dm/uclass-internal.h>
 #endif
-
-/* Safeguard for checking that U_BOOT_VERSION_NUM macros are compatible with U_BOOT_DMI */
-#if U_BOOT_VERSION_NUM < 2000 || U_BOOT_VERSION_NUM > 2099 || \
-    U_BOOT_VERSION_NUM_PATCH < 1 || U_BOOT_VERSION_NUM_PATCH > 12
-#error U_BOOT_VERSION_NUM macros are not compatible with DMI, fix U_BOOT_DMI macros
-#endif
-
-/*
- * U_BOOT_DMI_DATE contains BIOS Release Date in format mm/dd/yyyy.
- * BIOS Release Date is calculated from U-Boot version and fixed day 01.
- * So for U-Boot version 2021.04 it is calculated as "04/01/2021".
- * BIOS Release Date should contain date when code was released
- * and not when it was built or compiled.
- */
-#if U_BOOT_VERSION_NUM_PATCH < 10
-#define U_BOOT_DMI_MONTH "0" __stringify(U_BOOT_VERSION_NUM_PATCH)
-#else
-#define U_BOOT_DMI_MONTH __stringify(U_BOOT_VERSION_NUM_PATCH)
-#endif
-#define U_BOOT_DMI_DAY "01"
-#define U_BOOT_DMI_YEAR __stringify(U_BOOT_VERSION_NUM)
-#define U_BOOT_DMI_DATE U_BOOT_DMI_MONTH "/" U_BOOT_DMI_DAY "/" U_BOOT_DMI_YEAR
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -282,10 +259,10 @@ static int smbios_write_type1(ulong *current, int handle,
 	smbios_set_eos(ctx, t->eos);
 	t->manufacturer = smbios_add_prop(ctx, "manufacturer");
 	if (!t->manufacturer)
-		t->manufacturer = smbios_add_string(ctx, "Unknown");
+		t->manufacturer = smbios_add_string(ctx, CONFIG_SYS_VENDOR);
 	t->product_name = smbios_add_prop(ctx, "product");
 	if (!t->product_name)
-		t->product_name = smbios_add_string(ctx, "Unknown Product");
+		t->product_name = smbios_add_string(ctx, CONFIG_SYS_BOARD);
 	t->version = smbios_add_prop_si(ctx, "version",
 					SYSINFO_ID_SMBIOS_SYSTEM_VERSION);
 	if (serial_str) {
@@ -316,10 +293,10 @@ static int smbios_write_type2(ulong *current, int handle,
 	smbios_set_eos(ctx, t->eos);
 	t->manufacturer = smbios_add_prop(ctx, "manufacturer");
 	if (!t->manufacturer)
-		t->manufacturer = smbios_add_string(ctx, "Unknown");
+		t->manufacturer = smbios_add_string(ctx, CONFIG_SYS_VENDOR);
 	t->product_name = smbios_add_prop(ctx, "product");
 	if (!t->product_name)
-		t->product_name = smbios_add_string(ctx, "Unknown Product");
+		t->product_name = smbios_add_string(ctx, CONFIG_SYS_BOARD);
 	t->version = smbios_add_prop_si(ctx, "version",
 					SYSINFO_ID_SMBIOS_BASEBOARD_VERSION);
 	t->asset_tag_number = smbios_add_prop(ctx, "asset-tag");
@@ -345,7 +322,7 @@ static int smbios_write_type3(ulong *current, int handle,
 	smbios_set_eos(ctx, t->eos);
 	t->manufacturer = smbios_add_prop(ctx, "manufacturer");
 	if (!t->manufacturer)
-		t->manufacturer = smbios_add_string(ctx, "Unknown");
+		t->manufacturer = smbios_add_string(ctx, CONFIG_SYS_VENDOR);
 	t->chassis_type = SMBIOS_ENCLOSURE_DESKTOP;
 	t->bootup_state = SMBIOS_STATE_SAFE;
 	t->power_supply_state = SMBIOS_STATE_SAFE;
@@ -530,8 +507,7 @@ ulong write_smbios_table(ulong addr)
 		 */
 		printf("WARNING: SMBIOS table_address overflow %llx\n",
 		       (unsigned long long)table_addr);
-		addr = 0;
-		goto out;
+		table_addr = 0;
 	}
 	se->struct_table_address = table_addr;
 
@@ -542,7 +518,6 @@ ulong write_smbios_table(ulong addr)
 	isize = sizeof(struct smbios_entry) - SMBIOS_INTERMEDIATE_OFFSET;
 	se->intermediate_checksum = table_compute_checksum(istart, isize);
 	se->checksum = table_compute_checksum(se, sizeof(struct smbios_entry));
-out:
 	unmap_sysmem(se);
 
 	return addr;

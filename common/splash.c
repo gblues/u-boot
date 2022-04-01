@@ -52,7 +52,7 @@ static struct splash_location default_splash_locations[] = {
 	},
 };
 
-#ifdef CONFIG_VIDEO_LOGO
+#if defined(CONFIG_DM_VIDEO) && defined(CONFIG_VIDEO_LOGO)
 
 #include <bmp_logo_data.h>
 
@@ -65,7 +65,7 @@ static int splash_video_logo_load(void)
 	if (!splashimage)
 		return -ENOENT;
 
-	bmp_load_addr = hextoul(splashimage, 0);
+	bmp_load_addr = simple_strtoul(splashimage, 0, 16);
 	if (!bmp_load_addr) {
 		printf("Error: bad 'splashimage' address\n");
 		return -EFAULT;
@@ -84,7 +84,7 @@ __weak int splash_screen_prepare(void)
 {
 	if (CONFIG_IS_ENABLED(SPLASH_SOURCE))
 		return splash_source_load(default_splash_locations,
-					  ARRAY_SIZE(default_splash_locations));
+					  ARRAY_SIZE(default_splash_locations)) && splash_video_logo_load();
 
 	return splash_video_logo_load();
 }
@@ -162,7 +162,7 @@ int splash_display(void)
 	if (!s)
 		return -EINVAL;
 
-	addr = hextoul(s, NULL);
+	addr = simple_strtoul(s, NULL, 16);
 	ret = splash_screen_prepare();
 	if (ret)
 		return ret;
